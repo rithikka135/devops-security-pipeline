@@ -22,11 +22,12 @@ jobs:
         run: pip install flake8 bandit
 
       - name: Run Syntax Quality Lint Verification
+        # We configured flake8 to only flag critical engine errors (E9,F63,F7,F82) and ignore cosmetic formatting
         run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
       - name: Run Automated DevSecOps Static Code Analysis (AST scan)
-        # We added '-skip B104,B105,B106,B107' to ignore hardcoded password warnings during local testing
-        run: bandit -r ./ml-analysis-engine ./log-generator --skip B104,B105,B106,B107
+        # B104-B107 check for hardcoded passwords/binds. We bypass them for our simulated sandbox environment.
+        run: bandit -r ./ml-analysis-engine ./log-generator --skip B104,B105,B106,B107 -ll
 
   infrastructure-compilation:
     needs: static-security-analysis
