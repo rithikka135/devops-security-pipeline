@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  redis-cache:
+    image: redis:7-alpine
+    container_name: redis-blacklist
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    networks:
+      - secure-devops-net
+
+  rabbitmq-mq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq-broker
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - secure-devops-net
+
+  ml-engine:
+    build: ./ml-analysis-engine
+    container_name: ml-analysis-engine
+    environment:
+      - REDIS_HOST=redis-cache
+      - RABBITMQ_HOST=rabbitmq-mq
+    depends_on:
+      redis-cache:
+        condition: service_healthy
+      rabbitmq-mq:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    restart: on-failure
+    networks:
+      - secure-devops-net
+
+  log-generator:
+    build: ./log-generator
+    container_name: log-generator
+    environment:
+      - RABBITMQ_HOST=rabbitmq-mq
+    depends_on:
+      ml-engine:
+        condition: service_started
+    restart: on-failure
+    networks:
+      - secure-devops-net
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: prometheus-core
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.out-of-order-time-window=2m'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - ml-engine
+    networks:
+      - secure-devops-net
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: grafana-visual-soc
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/dashboards/dashboard_provider.yml:/etc/grafana/provisioning/dashboards/provider.yml:ro
+      - ./grafana/dashboards/siem_dashboard.json:/etc/grafana/provisioning/dashboards/siem_dashboard.json:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    depends_on:
+      - prometheus
+    networks:
+      - secure-devops-net
+
+  security-web-ui:
+    build:
+      context: ./log-generator
+      dockerfile: Dockerfile.ui
+    container_name: devops-security-frontend
+    ports:
+      - "8501:8501"
+    depends_on:
+      - ml-engine
+    networks:
+      - secure-devops-net
+
+networks:
+  secure-devops-net:
+    driver: bridge
