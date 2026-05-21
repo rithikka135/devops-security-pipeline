@@ -1,7 +1,9 @@
 global:
   scrape_interval: 2s
+  evaluation_interval: 2s
 
 scrape_configs:
-  - job_name: 'siem-pipeline-metrics'
+  - job_name: 'devsecops-ml-pipeline'
+    metrics_path: '/metrics'
     static_configs:
       - targets: ['ml-engine:8000']

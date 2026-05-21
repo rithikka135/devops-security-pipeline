@@ -1,0 +1,36 @@
+name: DevSecOps Real-Time CI/CD
+
+on:
+  push:
+    branches: [ main ]  # Triggers the pipeline every time you push code
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Pull your code into the cloud runner
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    # Step 2: Set up Python environment
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-state: '3.10'
+
+    # Step 3: Check for code formatting / syntax bugs
+    - name: Run Syntax Check (Linting)
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+    # Step 4: THE REAL SECURITY GATE - Run Trivy Vulnerability Scan
+    - name: Run Trivy Vulnerability Scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'  # Scans your project directory files
+        scan-ref: '.'
+        format: 'table'
+        severity: 'CRITICAL,HIGH'

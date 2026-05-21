@@ -1,9 +1,9 @@
 apiVersion: 1
 
 datasources:
-  - name: Prometheus
+  - name: Prometheus-SOC-Core
     type: prometheus
     access: proxy
-    url: http://prometheus:9090
+    url: http://prometheus-core:9090
     isDefault: true
     editable: false
