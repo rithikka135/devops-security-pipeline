@@ -1,4 +1,4 @@
-name: DevSecOps Enterprise Pipeline
+name: DevSecOps Automation Workflow
 
 on:
   push:
@@ -7,37 +7,34 @@ on:
     branches: [ main, master ]
 
 jobs:
-  static-security-analysis:
+  sast-security-audit:
+    name: Code Vulnerability Scanning
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code Repository
+      - name: Code Repository Check out
         uses: actions/checkout@v4
 
-      - name: Initialize Python Core
+      - name: Set up Environment Run-time
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install Linting & Security Tools
+      - name: Install Linting Tools
         run: pip install flake8 bandit
 
-      - name: Run Syntax Quality Lint Verification
-        # Adding '|| true' ensures formatting warnings don't break our build
-        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || true
+      - name: Evaluate Python Code Hygiene
+        run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
-      - name: Run Automated DevSecOps Static Code Analysis (AST scan)
-        # Adding '|| true' allows us to see bandit's output logs without failing the run
-        run: bandit -r ./ml-analysis-engine ./log-generator --skip B104,B105,B106,B107 -ll || true
+      - name: Execute Security Scan (Bandit SAST)
+        run: bandit -r ./ml-analysis-engine ./log-generator
 
-  infrastructure-compilation:
-    needs: static-security-analysis
+  orchestration-audit:
+    name: Infrastructure Manifest Validation
+    needs: sast-security-audit
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code Repository
+      - name: Code Repository Check out
         uses: actions/checkout@v4
 
-      - name: Validate Docker Compose Orchestration Integrity
+      - name: Validate Compose File Properties
         run: docker compose config
-
-      - name: Test Build Infrastructure Compilation Layers
-        run: docker compose build
