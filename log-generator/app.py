@@ -23,7 +23,7 @@ if "incident_history" not in st.session_state:
 if "k8s_replicas" not in st.session_state:
     st.session_state["k8s_replicas"] = {"log-generator": 1, "rabbitmq": 1, "ml-engine": 1, "redis-cache": 1}
 if "build_version" not in st.session_state:
-    st.session_state["build_version"] = "v1.2.4-update"
+    st.session_state["build_version"] = "v1.2.4-updat"
 
 def background_log_publisher():
     """ Simulates normal network traffic mixed with dynamic attack injections """
@@ -106,7 +106,7 @@ def parse_siem_telemetry():
 
 # Page Layout Configurations
 st.set_page_config(page_title="Enterprise SecOps Console", page_icon="🛡️", layout="wide")
-st.title("🛡️ Next-Gen DevSecOps Telemetry & Threat-Hunting SIEM")
+st.title("🛡️ Security Log Analyzer")
 st.caption("Real-Time Event Ingestion Broker Mesh with Unsupervised ML Anomaly Quarantine Isolation")
 
 # Fetch fresh metrics
@@ -263,18 +263,69 @@ st.json(live_json_packet)
 
 # --- AUTOMATED QUARANTINE LISTS ---
 st.markdown("### 🔒 Automated Network Firewall Restrictions")
-if live_data["blocked_ips"] > 0:
-    st.warning(f"⚠️ DevSecOps pipeline has actively pushed malicious addresses to the Redis Key-Value Store. The following node is being actively blocked from communicating with your microservices:")
+if live_data["blocked_ips"] > 0 or live_data["anomalies"] > 0:
+    st.warning(f"⚠️ DevSecOps pipeline has actively pushed malicious addresses to the Redis Key-Value Store. The following nodes are being actively blocked from communicating with your microservices:")
     
-    quarantine_df = pd.DataFrame({
-        "Quarantined IP Address": ["185.220.101.5"],
-        "Reason for Mitigation": ["High-Volume Brute Force Attack / Anomaly Triggered"],
-        "Mitigation Layer": ["Redis Cache Ingress Rule Blocked"],
-        "Time Restrained": [datetime.now().strftime("%Y-%m-%d %H:%M:%S")]
-    })
-    st.dataframe(quarantine_df, use_container_width=True, hide_index=True)
+    # Pool of realistic threat IPs to display
+    threat_pool = [
+        {"ip": "185.220.101.5", "reason": "High-Volume Brute Force Attack / Anomaly Triggered"},
+        {"ip": "192.168.4.55", "reason": "Distributed DDoS / Botnet Injection Stream"},
+        {"ip": "10.1.12.4", "reason": "Rogue Scanner Node / Volumetric Flood"},
+        {"ip": "172.19.88.2", "reason": "Credential Stuffing Attempt Vector"}
+    ]
+    
+    # 🌟 THE MAGIC FIX: Match the number of table rows to the live threat count metric
+    display_count = max(1, min(live_data["anomalies"], len(threat_pool)))
+    
+    quarantine_records = []
+    for i in range(display_count):
+        quarantine_records.append({
+            "Quarantined IP Address": threat_pool[i]["ip"],
+            "Reason for Mitigation": threat_pool[i]["reason"],
+            "Mitigation Layer": "Redis Cache Ingress Rule Blocked",
+            "Time Restrained": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+        
+    st.dataframe(pd.DataFrame(quarantine_records), use_container_width=True, hide_index=True)
 else:
     st.info("No addresses currently restrained. Active firewall rule table is empty.")
+
+# --- NEW EXTENSION: DEVOPS KUBERNETES & GITOPS HUB ---
+st.subheader("☸️ Kubernetes Microservice Cluster & GitOps Infrastructure Monitor")
+k8s_col, github_col = st.columns([2, 1])
+
+with k8s_col:
+    st.markdown("### 📦 Active K8s Pod Lifecycle Fleet")
+    
+    # 1. Prepare data including the Health Score for the graph
+    k8s_status_list = ["Scaling / Active" if "Distributed DDoS" in CURRENT_ATTACK_MODE and s == "ml-anomaly-engine-deployment" else "Running (Healthy)" 
+                       for s in ["log-generator-deployment", "rabbitmq-cluster-broker", "ml-anomaly-engine-deployment", "redis-mitigation-cache"]]
+    
+    k8s_df = pd.DataFrame({
+        "Microservice Name": ["log-gen", "rabbit", "ml-engine", "redis"],
+        "Desired": [st.session_state["k8s_replicas"]["log-generator"], st.session_state["k8s_replicas"]["rabbitmq"], st.session_state["k8s_replicas"]["ml-engine"], st.session_state["k8s_replicas"]["redis-cache"]],
+        "Status": k8s_status_list,
+        "Health_Score": [1.0 if s == "Running (Healthy)" else 0.5 for s in k8s_status_list]
+    })
+
+    # 2. Styling for the Table
+    def color_status(val):
+        color = '#2e7d32' if 'Healthy' in val else '#ef6c00'
+        return f'background-color: {color}'
+    
+    # 3. Display Table and Graph
+    st.dataframe(
+        k8s_df.drop(columns=["Health_Score"]).style.applymap(color_status, subset=['Status']), 
+        use_container_width=True, 
+        hide_index=True
+    )
+    
+    st.markdown("### 📊 Cluster Health Snapshot")
+    st.bar_chart(k8s_df.set_index("Microservice Name")["Health_Score"], height=150)
+    
+    # Showcase Kubernetes Horizontal Pod Autoscaler automation
+    if "Distributed DDoS" in CURRENT_ATTACK_MODE:
+        st.info("⚡ **HPA Notice:** CPU load high. Scaled `ml-anomaly-engine-deployment` pods to 4.")
 
 # Instant interface refreshes every second
 time.sleep(1.0)
